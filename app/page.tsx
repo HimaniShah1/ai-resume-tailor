@@ -1,66 +1,70 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import { useState } from "react";
+import { Form, Button, Container, Spinner } from "react-bootstrap";
 
 export default function Home() {
+  const [resume, setResume] = useState<File | null>(null);
+  const [jd, setJd] = useState("");
+  const [output, setOutput] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!resume || !jd.trim()) return alert("Upload resume + JD");
+
+    setLoading(true);
+
+    const form = new FormData();
+    form.append("resume", resume);
+    form.append("jobDescription", jd);
+
+    const res = await fetch("/api/tailor", {
+      method: "POST",
+      body: form,
+    });
+
+    const data = await res.json();
+    setOutput(data.tailoredResume);
+    setLoading(false);
+  };
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <Container style={{ maxWidth: 700 }} className="py-5">
+      <h2 className="mb-4 fw-bold">AI Resume Tailor</h2>
+
+      <Form.Group className="mb-3">
+        <Form.Label>Upload Resume (PDF)</Form.Label>
+        <Form.Control
+          type="file"
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0] ?? null;
+            setResume(file);
+          }}
+        />{" "}
+      </Form.Group>
+
+      <Form.Group className="mb-3">
+        <Form.Label>Paste Job Description</Form.Label>
+        <Form.Control
+          as="textarea"
+          rows={6}
+          value={jd}
+          onChange={(e) => setJd(e.target.value)}
         />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </Form.Group>
+
+      <Button onClick={handleSubmit} disabled={loading}>
+        {loading ? <Spinner animation="border" size="sm" /> : "Tailor Resume"}
+      </Button>
+
+      {output && (
+        <pre
+          className="mt-4 p-3 bg-light border rounded"
+          style={{ whiteSpace: "pre-wrap" }}
+        >
+          {output}
+        </pre>
+      )}
+    </Container>
   );
 }
