@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Form, Button, Container, Spinner } from "react-bootstrap";
+import { marked } from "marked";
+import { renderResumeHTML } from "./templates/resumeTemplate";
 
 export default function Home() {
   const [resume, setResume] = useState<File | null>(null);
@@ -28,6 +30,29 @@ export default function Home() {
     setLoading(false);
   };
 
+
+const handleDownload = async () => {
+  const editedMarkdown = document.getElementById("resumeEditor")?.innerText || output;
+const htmlFromMd = await marked(editedMarkdown);
+const htmlContent = renderResumeHTML(htmlFromMd);
+
+
+  const res = await fetch("/api/download-pdf", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ html: htmlContent }),
+  });
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "tailored_resume.pdf";
+  link.click();
+};
+
+
   return (
     <Container style={{ maxWidth: 700 }} className="py-5">
       <h2 className="mb-4 fw-bold">AI Resume Tailor</h2>
@@ -36,6 +61,7 @@ export default function Home() {
         <Form.Label>Upload Resume (PDF)</Form.Label>
         <Form.Control
           type="file"
+          accept="application/pdf"
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
             const file = e.target.files?.[0] ?? null;
             setResume(file);
@@ -58,12 +84,20 @@ export default function Home() {
       </Button>
 
       {output && (
-        <pre
-          className="mt-4 p-3 bg-light border rounded"
-          style={{ whiteSpace: "pre-wrap" }}
-        >
-          {output}
-        </pre>
+        <>
+          <pre
+            contentEditable
+            suppressContentEditableWarning={true}
+            id="resumeEditor"
+            className="mt-4 p-3 bg-light border rounded"
+            style={{ whiteSpace: "pre-wrap" }}
+          >
+            {output}
+          </pre>
+         <Button variant="success" onClick={handleDownload}>
+  Download PDF
+</Button>
+        </>
       )}
     </Container>
   );
