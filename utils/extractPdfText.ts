@@ -2,39 +2,58 @@
 
 import PDFParser from "pdf2json";
 
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch (err) {
+    try {
+      // fallback: replace percent sequences safely
+      return s.replace(/%([0-9A-Fa-f]{2})/g, (match) => {
+        try {
+          return String.fromCharCode(parseInt(match.slice(1), 16));
+        } catch {
+          return match;
+        }
+      });
+    } catch {
+      return s;
+    }
+  }
+}
+
 export async function extractPdfText(buffer: ArrayBuffer): Promise<string> {
   return new Promise((resolve, reject) => {
     const pdfParser = new PDFParser();
 
-    const bufferNode = Buffer.from(buffer);
-
-    const safeDecode = (text: string): string => {
-      try {
-        return decodeURIComponent(text);
-      } catch {
-        return text; // fallback without crashing
-      }
-    };
+    // Convert browser ArrayBuffer -> Node Buffer
+    const nodeBuffer = Buffer.from(buffer);
 
     pdfParser.on("pdfParser_dataError", (err: any) => {
-      reject(err?.parserError || "PDF parsing failed");
+      reject(err?.parserError || err);
     });
 
     pdfParser.on("pdfParser_dataReady", (pdfData: any) => {
-      let text = "";
+      try {
+        let text = "";
 
-      pdfData.Pages.forEach((page: any) => {
-        page.Texts.forEach((t: any) => {
-          t.R.forEach((r: any) => {
-            text += safeDecode(r.T) + " ";
+        (pdfData?.Pages || []).forEach((page: any) => {
+          (page.Texts || []).forEach((t: any) => {
+            // t.R array contains pieces
+            (t.R || []).forEach((r: any) => {
+              const encoded = r?.T ?? "";
+              const decoded = safeDecode(encoded);
+              text += decoded + " ";
+            });
           });
+          text += "\n";
         });
-        text += "\n";
-      });
 
-      resolve(text.trim());
+        resolve(text.trim());
+      } catch (err) {
+        reject(err);
+      }
     });
 
-    pdfParser.parseBuffer(bufferNode);
+    pdfParser.parseBuffer(nodeBuffer);
   });
 }
